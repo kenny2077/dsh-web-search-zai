@@ -1,0 +1,26 @@
+# dependencies
+node_modules/
+
+# build output (lib/*.js at the root IS committed so git installs work
+# without build permissions — see docs in README; lib/types and build
+# metadata are reproducible via `pnpm build`)
+lib/types/
+*.tsbuildinfo
+
+# private working documents (not part of the public distribution)
+HANDOFF.md
+CONTINUITY.md
+docs/marketplace-entry.md
+
+# local env / secrets — never commit API keys
+.env
+.env.*
+!.env.example
+
+# assistant/session working artifacts
+.zcode/
+
+# logs and OS noise
+*.log
+.DS_Store
+Thumbs.db
