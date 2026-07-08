@@ -1,0 +1,24 @@
+# web-search-zai bundle overlay.
+#
+# Mounted by `dsh plugin add` on install. Two things happen:
+#   1. The ZAI (Zhipu/GLM) search provider is registered into ctx.web.
+#   2. It becomes the active searchProvider, overriding the base bundle's
+#      deepseek-official default.
+#
+# The provider reads $ZAI_API_KEY from the managed credentials store
+# ($DSH_HOME/.credentials.yaml — the same credential the GLM chat model uses),
+# the inherited environment, or a literal apiKey in the web-search-zai settings
+# section. All fields are runtime-configurable via the Settings GUI.
+#
+# Patch the web plugin's config to select the ZAI provider.
+- id: web
+  config:
+    searchProvider: zai
+
+# Insert the ZAI (Zhipu/GLM) search provider plugin into the entry tree.
+# Uses `insert` (not a plain id+name row) because this is a patch overlay
+# applied over the base bundle's tree — a plain row would be treated as a
+# config patch on a non-existent entry and silently skipped.
+- insert:
+    - id: web-search-zai
+      name: 'dsh-web-search-zai'
