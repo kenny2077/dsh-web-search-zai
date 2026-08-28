@@ -1,6 +1,6 @@
 {
   "name": "dsh-web-search-zai",
-  "description": "ZAI (Zhipu/GLM)-backed search provider for the DeepSeek Harness web capability seam (ctx.web)",
+  "description": "Z.ai (GLM) web search provider plugin for the DeepSeek Harness",
   "version": "0.1.0",
   "publishConfig": {
     "access": "public"
