@@ -1,6 +1,8 @@
 # dsh-web-search-zai
 
-**Web search for the DeepSeek Harness, powered by Z.ai (GLM).**
+**Single-key model: reuses your existing `ZAI_API_KEY` for both chat and search.**
+
+A web-search plugin for the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), powered by Z.ai (GLM). If your harness already chats through GLM, you already have web search — no new account, no second key, nothing else to configure.
 
 [![CI](https://github.com/kenny2077/dsh-web-search-zai/actions/workflows/ci.yml/badge.svg)](https://github.com/kenny2077/dsh-web-search-zai/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/dsh-web-search-zai)](https://www.npmjs.com/package/dsh-web-search-zai)
@@ -8,25 +10,44 @@
 
 English | [中文](README.zh.md)
 
-## What is it
+## The whole point: one key, both chat and search
 
-`dsh-web-search-zai` is a community plugin for the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) that plugs a [ZAI (Zhipu/GLM)](https://z.ai)-backed search provider into the harness's [`ctx.web` capability seam](https://github.com/deepseek-ai/deepseek-harness/blob/main/packages/web/web/README.md). One `dsh plugin add` and your harness searches the web through ZAI's standalone Web Search API — no editing of base bundles, no restart to change settings.
+`dsh-web-search-zai` is a community plugin that plugs a ZAI (Zhipu/GLM) search provider into the harness's [`ctx.web` capability seam](https://github.com/deepseek-ai/deepseek-harness/blob/main/packages/web/web/README.md). Its reason to exist is the key: the same `ZAI_API_KEY` that authorizes GLM chat authorizes this search. The plugin resolves that credential on every search — from the harness credentials store, the launch environment, or a config literal — and calls ZAI's standalone Web Search API with it. That's the entire setup.
 
-## Why
-
-- **One key for chat and search.** The same `ZAI_API_KEY` that authorizes the GLM chat model authorizes this search. If you have an active Coding Plan or token balance, you're already set up.
-- **Runtime-configurable.** Endpoint, engine, and recency window are plain settings — a committed change takes effect on the very next search, no restart.
-- **Fits the seam, not around it.** The provider registers into `ctx.web` exactly like the built-in DeepSeek provider, so [`dsh-tool-web`](https://github.com/deepseek-ai/deepseek-harness/blob/main/packages/web/tool-web/README.md) and everything above the seam work unchanged.
+- **No new credentials.** If `ZAI_API_KEY` is already configured for chat, the search side is done. The key is re-read on every search, so rotating it updates search too.
+- **No separate billing.** Search runs on the same ZAI account as your chat — the same key works whether it came with a Coding Plan or a token balance.
+- **One command to install.** `dsh plugin add dsh-web-search-zai` — the bundled overlay registers the provider and switches the active `searchProvider` from `deepseek-official` to `zai` in one step.
+- **Fits the seam, not around it.** Registers into `ctx.web` exactly like the built-in DeepSeek provider, so [`dsh-tool-web`](https://github.com/deepseek-ai/deepseek-harness/blob/main/packages/web/tool-web/README.md) and everything above the seam work unchanged.
+- **Runtime-configurable.** Endpoint, engine, and recency window are plain settings — a change takes effect on the very next search, no restart.
 - **No invented fields.** Only what the API actually returns gets mapped — if ZAI doesn't send a publication date, you won't get a fabricated one.
+
+> Chat stays untouched: the plugin only adds a search provider and only calls the standalone Web Search API (`POST /web_search`). Your chat configuration is exactly as you left it.
 
 ## How it works
 
 ```
-dsh ──▶ ctx.web ──▶ web-search-zai ──▶ POST {baseURL}/web_search
-                        │                    ZAI (Zhipu/GLM)
-                        ◀──────────────────── search_result[]
-                        │
-                        └──▶ normalized WebSearchResult (sources + truncated)
+┌────────────────────────────────────────────────┐
+│                DeepSeek Harness                │
+│                                                │
+│  model ──▶ web_search tool ──▶ ctx.web seam    │
+└───────────────────────────────────────────┬────┘
+                                            │
+                                            ▼
+                            ┌──────────────────────────────┐
+ZAI_API_KEY ───────────────▶│        web-search-zai        │
+ (same key as GLM chat)     │        (this plugin)         │
+                            └───────────────┬──────────────┘
+                                            │  POST {baseURL}/web_search
+                                            ▼
+                            ┌──────────────────────────────┐
+                            │      ZAI (Zhipu / GLM)       │
+                            │  standalone Web Search API   │
+                            └───────────────┬──────────────┘
+                                            │  search_result[]
+                                            ▼
+                               normalized WebSearchResult
+                                  (sources + truncated)
+                            ──▶ back to your model, unchanged
 ```
 
 ZAI returns a flat `search_result[]` with no generated answer, so each entry maps to a source and `content` is omitted:
@@ -42,9 +63,9 @@ Failures surface as standard `WebError` codes: `WEB_PROVIDER_ERROR` (HTTP/networ
 
 ## Quick start
 
-You'll need the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) installed (`dsh` CLI available) and a ZAI API key.
+You'll need the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) installed (`dsh` CLI available).
 
-1. **Get a key** at [z.ai](https://z.ai) (international) or [open.bigmodel.cn](https://open.bigmodel.cn) (China), then store it so it never lands in a config file — via the harness web UI (Models page), a `ZAI_API_KEY` entry in `$DSH_HOME/.credentials.yaml`, or the launching environment.
+1. **Have your `ZAI_API_KEY` ready — you probably already do.** If your harness chats through GLM, the key is already stored where this plugin looks: via the harness web UI (Models page), a `ZAI_API_KEY` entry in `$DSH_HOME/.credentials.yaml`, or the launching environment. Don't have one yet? Get it at [z.ai](https://z.ai) (international) or [open.bigmodel.cn](https://open.bigmodel.cn) (China).
 
    > A Token Rhythm (chat gateway) key does **not** work here — only a native ZAI key.
 
@@ -55,7 +76,7 @@ You'll need the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harne
    dsh plugin add github:kenny2077/dsh-web-search-zai   # from git (prebuilt, no build step)
    ```
 
-   The `cordis.patch.yml` overlay registers the provider and switches the active `searchProvider` from `deepseek-official` to `zai` in one step. To go back: `dsh plugin remove dsh-web-search-zai`.
+   The `cordis.patch.yml` overlay registers the provider and selects it as the active `searchProvider` in one step. To go back: `dsh plugin remove dsh-web-search-zai`.
 
 3. **Search.** Ask your harness something current and watch the `web_search` tool return ZAI results.
 

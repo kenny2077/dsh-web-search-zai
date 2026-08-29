@@ -1,6 +1,8 @@
 # dsh-web-search-zai
 
-**为 DeepSeek Harness 提供由 Z.ai（GLM）驱动的网络搜索。**
+**单密钥模式：复用你已有的 `ZAI_API_KEY`，聊天与搜索共用一把密钥。**
+
+为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 提供由 Z.ai（GLM）驱动的网络搜索。如果你的 harness 已经在用 GLM 聊天，那搜索能力也已就绪——无需新账号，无需第二把密钥，无需任何额外配置。
 
 [![CI](https://github.com/kenny2077/dsh-web-search-zai/actions/workflows/ci.yml/badge.svg)](https://github.com/kenny2077/dsh-web-search-zai/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/dsh-web-search-zai)](https://www.npmjs.com/package/dsh-web-search-zai)
@@ -8,25 +10,45 @@
 
 [English](README.md) | 中文
 
-## 这是什么
+## 核心价值：一把密钥，聊天与搜索两用
 
-`dsh-web-search-zai` 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的社区插件，把由 [ZAI（智谱／GLM）](https://z.ai)支持的搜索提供方接入 harness 的 [`ctx.web` 能力 seam](https://github.com/deepseek-ai/deepseek-harness/blob/main/packages/web/web/README.zh.md)。一条 `dsh plugin add`，你的 harness 就能通过 ZAI 的独立 Web 搜索 API 搜索网络——无需编辑基础包，更改设置也无需重启。
+`dsh-web-search-zai` 是一个社区插件，把 ZAI（智谱/GLM）搜索提供方接入 harness 的 [`ctx.web` 能力 seam](https://github.com/deepseek-ai/deepseek-harness/blob/main/packages/web/web/README.zh.md)。它存在的理由就是这把密钥：授权 GLM 聊天的同一个 `ZAI_API_KEY`，同样授权此搜索。插件在每次搜索时解析该凭据——来自 harness 凭据存储、启动环境或配置字面量——并用它调用 ZAI 的独立 Web 搜索 API。配置到此为止。
 
-## 为什么用
-
-- **聊天和搜索共用一把密钥。** 授权 GLM 聊天模型的同一个 `ZAI_API_KEY` 也授权此搜索。只要你有有效的 Coding Plan 或代币余额，就已经就绪。
+- **无需新凭据。** 只要 `ZAI_API_KEY` 已为聊天配置好，搜索侧即告完成。密钥每次搜索都会重新读取，轮换密钥时搜索同步更新。
+- **无需单独计费。** 搜索走的是你聊天所在的同一个 ZAI 账号——无论密钥来自 Coding Plan 还是代币余额，同一把密钥通用。
+- **一条命令安装。** `dsh plugin add dsh-web-search-zai`——内置叠加层一步完成注册提供方，并把活动 `searchProvider` 从 `deepseek-official` 切换为 `zai`。
+- **接入 seam，而非绕开它。** 像内置 DeepSeek 提供方一样注册进 `ctx.web`，[`dsh-tool-web`](https://github.com/deepseek-ai/deepseek-harness/blob/main/packages/web/tool-web/README.zh.md) 及 seam 之上的所有组件照常工作。
 - **运行时可配置。** 端点、引擎、时间窗口都是普通设置——提交后下一次搜索即生效，无需重启。
-- **接入 seam，而非绕开它。** 提供方像内置的 DeepSeek 提供方一样注册进 `ctx.web`，[`dsh-tool-web`](https://github.com/deepseek-ai/deepseek-harness/blob/main/packages/web/tool-web/README.zh.md) 及 seam 之上的所有组件照常工作。
 - **不编造字段。** 只映射 API 实际返回的内容——ZAI 不返回发布日期，你就不会看到虚构的日期。
+
+> 聊天侧保持原样：本插件只添加搜索提供方，只调用独立 Web 搜索 API（`POST /web_search`）。你的聊天配置一字不动。
 
 ## 工作原理
 
 ```
-dsh ──▶ ctx.web ──▶ web-search-zai ──▶ POST {baseURL}/web_search
-                        │                    ZAI（智谱/GLM）
-                        ◀──────────────────── search_result[]
-                        │
-                        └──▶ 规范化的 WebSearchResult（sources + truncated）
+┌────────────────────────────────────────────────┐
+│                DeepSeek Harness                │
+│                                                │
+│  model ──▶ web_search tool ──▶ ctx.web seam    │
+└───────────────────────────────────────────┬────┘
+                                            │
+                                            ▼
+                            ┌──────────────────────────────┐
+（与 GLM 聊天同一密钥）
+ZAI_API_KEY ───────────────▶│        web-search-zai        │
+                            │        (this plugin)         │
+                            └───────────────┬──────────────┘
+                                            │  POST {baseURL}/web_search
+                                            ▼
+                            ┌──────────────────────────────┐
+                            │      ZAI (Zhipu / GLM)       │
+                            │  standalone Web Search API   │
+                            └───────────────┬──────────────┘
+                                            │  search_result[]
+                                            ▼
+                               normalized WebSearchResult
+                              （只映射真实返回的字段）
+                                 ──▶ 原样返回给你的模型
 ```
 
 ZAI 返回扁平的 `search_result[]`，没有生成式答案，因此每项映射为一个来源，`content` 省略：
@@ -42,9 +64,9 @@ ZAI 返回扁平的 `search_result[]`，没有生成式答案，因此每项映�
 
 ## 快速开始
 
-你需要已安装 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh` CLI 可用），以及一个 ZAI API 密钥。
+你需要已安装 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh` CLI 可用）。
 
-1. **获取密钥**：在 [z.ai](https://z.ai)（国际）或 [open.bigmodel.cn](https://open.bigmodel.cn)（中国）注册，然后把它存进受管凭据，避免落入配置文件——通过 harness Web 界面（Models 页面）、`$DSH_HOME/.credentials.yaml` 中的 `ZAI_API_KEY` 条目，或启动环境变量。
+1. **准备好 `ZAI_API_KEY`——大概率已经有了。** 如果你的 harness 在用 GLM 聊天，密钥已经存放在本插件读取的位置：harness Web 界面（Models 页面）、`$DSH_HOME/.credentials.yaml` 中的 `ZAI_API_KEY` 条目，或启动环境变量。还没有？在 [z.ai](https://z.ai)（国际）或 [open.bigmodel.cn](https://open.bigmodel.cn)（中国）获取。
 
    > Token Rhythm（聊天网关）密钥在这里**不可用**——只有 ZAI 原生密钥有效。
 
@@ -55,7 +77,7 @@ ZAI 返回扁平的 `search_result[]`，没有生成式答案，因此每项映�
    dsh plugin add github:kenny2077/dsh-web-search-zai   # 从 git（预构建，无构建步骤）
    ```
 
-   `cordis.patch.yml` 叠加层一步完成两件事：注册提供方，并把活动 `searchProvider` 从 `deepseek-official` 切换为 `zai`。切回：`dsh plugin remove dsh-web-search-zai`。
+   `cordis.patch.yml` 叠加层一步完成注册，并把该提供方选为活动 `searchProvider`。切回：`dsh plugin remove dsh-web-search-zai`。
 
 3. **搜索。** 让你的 harness 查一个时效性问题，看 `web_search` 工具返回 ZAI 结果。
 

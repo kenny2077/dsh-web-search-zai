@@ -1,6 +1,6 @@
 {
   "name": "dsh-web-search-zai",
-  "description": "Z.ai (GLM) web search provider plugin for the DeepSeek Harness",
+  "description": "Single-key web search for the DeepSeek Harness: reuses your existing ZAI_API_KEY for both chat and search, powered by Z.ai (GLM)",
   "version": "0.1.0",
   "publishConfig": {
     "access": "public"
