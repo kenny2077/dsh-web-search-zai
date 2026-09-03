@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] - Pending release
+## [0.2.0] - 2026-09-02
 
 - feat!: default search to Coding Plan MCP quota; set `billingMode: "api"` to retain REST API billing when upgrading.
 - feat: add per-search MCP discovery, result normalization, cancellation, a 60-second deadline, and no paid fallback.
@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix: use the host's text, input, and button colors so the card remains readable in dark and light themes.
 - feat: add explicit Z.ai / Zhipu MCP endpoint shortcuts and clarify quota points in both languages.
 - build: include TypeScript declarations in Git installs and verify packed installs in the CI matrix.
-- docs: rewrite installation, 0.1.0 migration, regional endpoints, local-checkout updates, rollback, and troubleshooting; distinguish GitHub from the pending npm release.
+- docs: rewrite installation, 0.1.0 migration, regional endpoints, local-checkout updates, rollback, and troubleshooting; clarify npm and GitHub installation choices.
 - fix: support atomic settings saves on published DSH 0.1.1-rc.2 as well as newer grouped-write scopes.
 - test: cover local JSON/SSE MCP servers, quota errors, lifecycle, settings conflicts, partial saves, and browser loading.
 - docs: distinguish Coding Plan quota from API balance and require explicit billing mode for live smoke tests.

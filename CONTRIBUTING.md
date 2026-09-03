@@ -89,8 +89,8 @@ Remove-Item Env:ZAI_SEARCH_MCP_URL
 5. Record live verification separately from automated coverage. Do not rerun live
    searches automatically or assume a successful search establishes a fixed point cost.
 6. At publication, date the changelog and update **both** README release notices,
-   npm installation notes, upgrade table, and missing-card troubleshooting. Until
-   then, they must state that npm 0.1.0 is REST-only.
+   npm installation notes, upgrade table, and missing-card troubleshooting. Before
+   publication, clearly distinguish GitHub-only changes from the npm release.
 7. Publish only as an explicit release action; verify the npm dist-tag afterward.
    Update the Awesome DSH Plugins description through its normal contribution
    process once the release is available. The current listing describes REST only.

@@ -8,7 +8,7 @@
 
 [English](README.md) | 中文 · 已收录于 [Awesome DSH Plugins](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/data/plugins/kenny2077__dsh-web-search-zai.yml)
 
-> **0.2.0 发布准备中：** GUI 和 Coding Plan 支持已在 GitHub 提供。npm 当前仍为 **0.1.0（仅 REST）**，上方 npm 徽章显示已发布版本。要在 npm 发布前测试升级，请使用下方 GitHub 安装命令。
+> **0.2.0 新增：** Coding Plan MCP 搜索、原生中英文设置卡片，以及明确的 Z.ai／智谱地址选项。继续支持 REST API 模式。
 >
 > **已有用户：** 默认模式从 REST 改为 Coding Plan。要保留原来的 API 计费方式，请在升级后的第一次搜索前选择并保存 **API — API 账户余额**。详见[从 0.1.0 升级](#从-010-升级)。
 
@@ -30,19 +30,19 @@
 
 需要 DeepSeek Harness 的 `dsh` CLI 和 Web 设置服务，以及 **Node 22.19+（22 系列）或 Node 24+**。请使用所选平台的原生密钥；不支持第三方聊天网关密钥。
 
-将 GitHub 版本安装到 **web** 配置环境：
+将 npm 包安装到 **web** 配置环境：
 
 ```sh
-dsh plugin --profile web add github:kenny2077/dsh-web-search-zai
+dsh plugin --profile web add dsh-web-search-zai@latest
 dsh web
 ```
 
 仓库包含预构建 JavaScript，包管理器负责安装运行依赖，无需允许插件构建脚本。如果从 DSH 源码仓库运行，请在该仓库中将 `dsh` 替换为 `pnpm dsh`。
 
-安装 npm 已发布版本（当前为 0.1.0，仅支持 REST）：
+也可以安装 GitHub 最新版本：
 
 ```sh
-dsh plugin --profile web add dsh-web-search-zai@latest
+dsh plugin --profile web add github:kenny2077/dsh-web-search-zai
 ```
 
 打开 **设置 → 网页搜索（Z.ai）**：
@@ -108,11 +108,11 @@ web-search-zai:
 
 | 安装来源 | 更新方式 |
 | --- | --- |
-| npm | **0.2.0 发布后：** `dsh plugin --profile web update dsh-web-search-zai --latest` |
+| npm | `dsh plugin --profile web update dsh-web-search-zai --latest` |
 | GitHub | `dsh plugin --profile web update dsh-web-search-zai --latest` |
 | 本地目录 | 在插件源码目录运行 `git pull --ff-only`，再运行 `pnpm install --frozen-lockfile` |
 
-从 npm 切换到 GitHub 测试版，执行上方 GitHub 安装命令即可。回退到旧版可执行 `dsh plugin --profile web add dsh-web-search-zai@0.1.0` 并重启；该版本始终使用 REST。共享密钥仍保存在 DSH 中。
+从 npm 切换到 GitHub 版本，执行上方 GitHub 安装命令即可。回退到旧版可执行 `dsh plugin --profile web add dsh-web-search-zai@0.1.0` 并重启；该版本始终使用 REST。共享密钥仍保存在 DSH 中。
 
 ## 设置参考
 
@@ -141,7 +141,7 @@ web-search-zai:
 | `Cannot find package '@modelcontextprotocol/sdk'` | 本地链接安装时，在**插件源码目录**执行 `pnpm install --frozen-lockfile`，再重启 DSH。`git pull` 不会安装新依赖。 |
 | 升级后搜索失败 | 检查**已保存的模式**。原 REST 用户需要明确选择 `api`。 |
 | 认证或额度错误 | 检查密钥与 Z.ai／智谱地址是否匹配，以及所选模式的套餐额度或 API 余额。“已配置”只代表存在密钥，不代表认证成功。 |
-| 没有新卡片 | 确认安装到 `web` 环境，重启 DSH 并刷新浏览器。npm 0.1.0 没有此卡片。 |
+| 没有新卡片 | 确认安装到 `web` 环境，重启 DSH 并刷新浏览器。旧版 0.1.0 没有此卡片，请升级到 0.2.0 或更新版本。 |
 | 设置只读 | 使用支持可写设置与凭据的 DSH 主机连接；仍可使用文件配置。 |
 | 结果少于请求数量 | 缺少 URL 或非空摘要的条目会被丢弃；最终数量由 DSH web 服务限制。 |
 

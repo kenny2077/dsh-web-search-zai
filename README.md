@@ -8,7 +8,7 @@ Search the web from DeepSeek Harness using **Z.ai or Zhipu**, with a native sett
 
 English | [中文](README.zh.md) · Listed in [Awesome DSH Plugins](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/data/plugins/kenny2077__dsh-web-search-zai.yml)
 
-> **0.2.0 release preparation:** the GUI and Coding Plan support are available on GitHub. npm currently serves **0.1.0 (REST only)**; the npm badge shows the published version. Use the GitHub install below to test this upgrade before the npm release.
+> **New in 0.2.0:** Coding Plan MCP search, a native English/Chinese settings card, and explicit Z.ai / Zhipu endpoints. REST API mode remains available.
 >
 > **Existing users:** the default changes from REST to Coding Plan. To keep your current API billing, explicitly save **API — API balance** before your first search after upgrading. See [Upgrading from 0.1.0](#upgrading-from-010).
 
@@ -30,19 +30,19 @@ A search can consume quota even without a chat inference request. In our Zhipu t
 
 Requirements: DeepSeek Harness with the `dsh` CLI and its web settings services, plus Node.js **22.19+ within Node 22, or 24+**. Use a native key for the service you select; third-party chat gateway keys are not supported.
 
-Install the GitHub build into the **web** profile:
+Install the npm package into the **web** profile:
 
 ```sh
-dsh plugin --profile web add github:kenny2077/dsh-web-search-zai
+dsh plugin --profile web add dsh-web-search-zai@latest
 dsh web
 ```
 
 Prebuilt JavaScript is included. The package manager installs runtime dependencies; you do not need to allow a plugin build script. If you run DSH from its source repository, use `pnpm dsh` in place of `dsh` from that repository.
 
-For the published npm version (currently 0.1.0, REST only):
+Alternatively, install the latest GitHub build:
 
 ```sh
-dsh plugin --profile web add dsh-web-search-zai@latest
+dsh plugin --profile web add github:kenny2077/dsh-web-search-zai
 ```
 
 In **Settings → Web Search (Z.ai)**:
@@ -108,7 +108,7 @@ Stop DSH, use the command for your installation, then restart DSH and reload its
 
 | Installed from | Update |
 | --- | --- |
-| npm | **After 0.2.0 is published:** `dsh plugin --profile web update dsh-web-search-zai --latest` |
+| npm | `dsh plugin --profile web update dsh-web-search-zai --latest` |
 | GitHub | `dsh plugin --profile web update dsh-web-search-zai --latest` |
 | Local checkout | Run `git pull --ff-only`, then `pnpm install --frozen-lockfile` in the plugin checkout |
 
@@ -141,7 +141,7 @@ The card saves non-secret fields through DSH settings and writes keys only throu
 | `Cannot find package '@modelcontextprotocol/sdk'` | For a local link, run `pnpm install --frozen-lockfile` **in the plugin checkout**, then restart DSH. `git pull` alone does not install new dependencies. |
 | Search fails after upgrading | Check the **saved billing mode**. Existing REST users must explicitly select `api`. |
 | Authentication or quota error | Match the key to its Z.ai/Zhipu endpoint and check the subscription or API balance for the selected mode. A configured badge reports key presence, not successful authentication. |
-| New card is missing | Confirm the plugin is installed in the `web` profile, restart DSH, and reload the browser. The npm 0.1.0 release has no card. |
+| New card is missing | Confirm the plugin is installed in the `web` profile, restart DSH, and reload the browser. The old 0.1.0 release has no card; update to 0.2.0 or later. |
 | Settings are read-only | Use a supported DSH host connection with writable settings and credentials; file-based configuration remains available. |
 | Fewer results than requested | The provider drops entries without a URL or nonblank snippet. The DSH web service caps the final result count. |
 
