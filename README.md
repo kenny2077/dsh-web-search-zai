@@ -1,133 +1,178 @@
-# dsh-web-search-zai
+# Web Search (Z.ai) for DeepSeek Harness
 
-**Single-key model: reuses your existing `ZAI_API_KEY` for both chat and search.**
-
-A web-search plugin for the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), powered by Z.ai (GLM). Reuse the same key for search, choosing Coding Plan MCP quota or separately billed API balance.
+Search the web from DeepSeek Harness using **Z.ai or Zhipu**, with a native settings card in English and Chinese. Choose **Coding Plan MCP quota** or **REST API balance**, and reuse your existing `ZAI_API_KEY` when it is eligible for the selected service.
 
 [![CI](https://github.com/kenny2077/dsh-web-search-zai/actions/workflows/ci.yml/badge.svg)](https://github.com/kenny2077/dsh-web-search-zai/actions/workflows/ci.yml)
-[![npm version](https://img.shields.io/npm/v/dsh-web-search-zai)](https://www.npmjs.com/package/dsh-web-search-zai)
+[![npm](https://img.shields.io/npm/v/dsh-web-search-zai)](https://www.npmjs.com/package/dsh-web-search-zai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-English | [中文](README.zh.md)
+English | [中文](README.zh.md) · Listed in [Awesome DSH Plugins](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/data/plugins/kenny2077__dsh-web-search-zai.yml)
 
-## The whole point: one key, both chat and search
+> **0.2.0 release preparation:** the GUI and Coding Plan support are available on GitHub. npm currently serves **0.1.0 (REST only)**; the npm badge shows the published version. Use the GitHub install below to test this upgrade before the npm release.
+>
+> **Existing users:** the default changes from REST to Coding Plan. To keep your current API billing, explicitly save **API — API balance** before your first search after upgrading. See [Upgrading from 0.1.0](#upgrading-from-010).
 
-`dsh-web-search-zai` is a community plugin that plugs a ZAI (Zhipu/GLM) search provider into the harness's [`ctx.web` capability seam](https://github.com/deepseek-ai/deepseek-harness/blob/main/packages/web/web/README.md). Its reason to exist is the key: the same `ZAI_API_KEY` that authorizes GLM chat authorizes this search. The plugin resolves that credential on every search — from the harness credentials store, the launch environment, or a config literal — and uses the selected billing mode. Coding Plan is the default.
+## What changes in 0.2
 
-- **No new credentials.** If `ZAI_API_KEY` is already configured for chat, the search side is done. The key is re-read on every search, so rotating it updates search too.
-- **Two explicit billing modes.** `coding-plan` consumes subscription MCP quota; `api` consumes API balance. The plugin never falls back to paid API automatically.
-- **One command to install.** `dsh plugin add dsh-web-search-zai` — the bundled overlay registers the provider and switches the active `searchProvider` from `deepseek-official` to `zai` in one step.
-- **Fits the seam, not around it.** Registers into `ctx.web` exactly like the built-in DeepSeek provider, so [`dsh-tool-web`](https://github.com/deepseek-ai/deepseek-harness/blob/main/packages/web/tool-web/README.md) and everything above the seam work unchanged.
-- **Dedicated settings card.** Web Search (Z.ai) shows the saved billing mode, key status, and advanced options in English or Chinese. A saved change takes effect on the next search.
-- **No invented fields.** Only what the API actually returns gets mapped — if ZAI doesn't send a publication date, you won't get a fabricated one.
+- **Two billing modes.** Coding Plan is the default. API mode retains the existing REST transport and its engine/recency options. There is no automatic fallback to paid API.
+- **Native settings.** Set the mode, manage your key, and choose the Z.ai or Zhipu MCP endpoint in Settings → Web Search (Z.ai). Changes apply to the next search.
+- **Same DSH integration.** Provider ID `zai`, the `web-search-zai` settings namespace, and the model-facing web-search tools stay the same.
+- **Keys stay in credentials.** Blank input preserves the shared key. Reset clears only search-setting overrides; it keeps the key.
 
-> **Upgrading from 0.1.0:** omitted `billingMode` now means `coding-plan`. Set `billingMode: "api"` explicitly to retain REST API search. Coding Plan needs an eligible Z.ai subscription; the same key does not imply the same billing allowance.
+| Mode | Uses | Choose it when |
+| --- | --- | --- |
+| **Coding Plan** (`coding-plan`, default) | Subscription MCP quota | Your key has an eligible Coding Plan subscription |
+| **API** (`api`) | Separately billed API balance | You want REST search or are keeping your 0.1.0 setup |
 
-## How it works
+A search can consume quota even without a chat inference request. In our Zhipu test, a search was observed to consume **one point**. A point is not a model token, and this observation is not a guaranteed rate or allowance. Check the current [Z.ai search documentation](https://docs.z.ai/devpack/mcp/search-mcp-server), [Z.ai usage policy](https://docs.z.ai/devpack/usage-policy), and [Zhipu search documentation](https://docs.bigmodel.cn/cn/coding-plan/mcp/search-mcp-server) for your account. This is a community plugin; listing in a community catalog does not imply official DSH or Z.ai endorsement.
 
-```text
-model → web_search → ctx.web → web-search-zai
-                                  │
-                       same ZAI_API_KEY
-                         ┌────────┴────────┐
-                         ▼                 ▼
-                    coding-plan           api
-                    Z.ai MCP         POST /web_search
-                    plan quota        API balance
-                         └────────┬────────┘
-                                  ▼
-                       normalized sources
+## Install and configure
+
+Requirements: DeepSeek Harness with the `dsh` CLI and its web settings services, plus Node.js **22.19+ within Node 22, or 24+**. Use a native key for the service you select; third-party chat gateway keys are not supported.
+
+Install the GitHub build into the **web** profile:
+
+```sh
+dsh plugin --profile web add github:kenny2077/dsh-web-search-zai
+dsh web
 ```
 
-REST returns `search_result[]`; MCP returns structured content or JSON text, including double-encoded arrays. Both map to sources without a generated answer:
+Prebuilt JavaScript is included. The package manager installs runtime dependencies; you do not need to allow a plugin build script. If you run DSH from its source repository, use `pnpm dsh` in place of `dsh` from that repository.
 
-| ZAI field | Seam field | Notes |
-|---|---|---|
-| `link` | `url` | Entry dropped if missing |
-| `title` | `title` | Omitted when empty |
-| `content` | `snippet` | Entry dropped if blank |
-| — | `publishedAt` | Not mapped by this plugin |
+For the published npm version (currently 0.1.0, REST only):
 
-Failures surface as standard `WebError` codes: `WEB_PROVIDER_ERROR` (HTTP/network/bad body), `WEB_ABORTED` (cancellation), and `WEB_PROVIDER_CREDENTIAL_MISSING` (no key). Through `dsh-tool-web`, these reach the model under the consumer's usual error wrapper.
+```sh
+dsh plugin --profile web add dsh-web-search-zai@latest
+```
 
-## Quick start
+In **Settings → Web Search (Z.ai)**:
 
-You'll need the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) installed (`dsh` CLI available).
+1. Choose **Coding Plan — subscription MCP quota** or **API — API balance**.
+2. Leave the masked key input blank if DSH already has the right `ZAI_API_KEY`. Otherwise enter the key. Replacing the shared key also affects chat using that credential.
+3. For a **Zhipu / China** Coding Plan key, open **Advanced settings**, click **Use Zhipu (China)**, and save. Z.ai international is the default. Key format and UI language do not select the endpoint automatically.
+4. Save, then ask DSH to search the web. The card shows the **saved mode**, which can differ from an unsaved selection.
 
-1. **Have your `ZAI_API_KEY` ready — you probably already do.** If your harness chats through GLM, the key is already stored where this plugin looks: via the harness web UI (Models page), a `ZAI_API_KEY` entry in `$DSH_HOME/.credentials.yaml`, or the launching environment. Don't have one yet? Get it at [z.ai](https://z.ai) (international) or [open.bigmodel.cn](https://open.bigmodel.cn) (China).
+### Installing a local checkout
 
-   > A Token Rhythm (chat gateway) key does **not** work here — only a native ZAI key.
+Local-path installs link to your checkout. Install its dependencies before registering it, and repeat `pnpm install --frozen-lockfile` after pulling an upgrade:
 
-2. **Install the plugin:**
+```sh
+git clone https://github.com/kenny2077/dsh-web-search-zai.git
+cd dsh-web-search-zai
+pnpm install --frozen-lockfile
+dsh plugin --profile web add .
+dsh web
+```
 
-   ```sh
-   dsh plugin add dsh-web-search-zai        # from npm
-   dsh plugin add github:kenny2077/dsh-web-search-zai   # from git (prebuilt, no build step)
-   ```
+With a source checkout of DSH, run `pnpm dsh plugin --profile web add <absolute-plugin-path>` from the DSH repository after installing the plugin's dependencies.
 
-   The `cordis.patch.yml` overlay registers the provider and selects it as the active `searchProvider` in one step. To go back: `dsh plugin remove dsh-web-search-zai`.
+## Upgrading from 0.1.0
 
-3. **Choose a billing mode** in Settings → Web Search (Z.ai). Coding Plan is selected by default. API mode uses API balance. Ask the harness something current to run a search.
+Your key, credential reference, REST endpoint, engine, and recency settings keep their meaning. **An omitted `billingMode` now selects Coding Plan**, including configurations created by 0.1.0. No automatic migration guesses your subscription or changes your billing choice.
 
-## Configuration
+### Keep REST API billing
 
-The dedicated card uses the `web-search-zai` settings namespace. Non-secret fields are read from the host's shared settings mirror and saved with revision checks. The masked key field writes only to DSH credentials; a blank key preserves its current value. Replacing the default `ZAI_API_KEY` also affects chat using that key.
-
-Advanced settings expose the credential reference and the selected transport's options. Save a changed credential reference before entering its key. **Reset search settings** clears only the card's non-secret user overrides, restoring composition defaults; it keeps the shared key. If settings changed while editing, discard edits and retry. A partial save explicitly reports whether settings were saved but the key failed.
-
-Credential precedence remains: a nonempty literal `apiKey`, then the configured credential reference through DSH credentials (or the launch environment when the credentials service is absent). The card identifies a literal override and disables key editing until it is removed from configuration. Non-secret settings use DSH's user → composition → schema-default precedence; REST `baseURL` additionally falls back to `ZAI_SEARCH_BASE_URL` before the built-in URL.
-
-The GUI requires a DSH web client providing `settingsScope` and writable host settings. Unavailable, non-loopback, or read-only settings remain disabled; file-based configuration continues to work.
-
-| Key | Default | Meaning |
-|---|---|---|
-| `billingMode` | `coding-plan` | `coding-plan` uses MCP quota; `api` uses API balance. No automatic fallback. |
-| `mcpURL` | `https://api.z.ai/api/mcp/web_search_prime/mcp` | Full Coding Plan Streamable HTTP endpoint. |
-| `apiKey` | (from credentials store) | Literal ZAI API key. Prefer `apiKeyEnv` so no secret enters config files. |
-| `apiKeyEnv` | `ZAI_API_KEY` | Credential reference resolved for each search. |
-| `baseURL` | `https://api.z.ai/api/paas/v4` | API mode only: endpoint base; `/web_search` is appended. |
-| `searchEngine` | `search-prime` | API mode only: `search-prime` for `api.z.ai`; `search_pro` (underscore) for `open.bigmodel.cn`. |
-| `searchRecency` | (unset) | API mode only: recency filter: `day`, `week`, `month`, or `year`. |
-
-Example user settings:
+After upgrading, choose **API — API balance** in the card and **Save before searching**. For a file-based setup, stop DSH and add this field to the existing namespace in `$DSH_HOME/settings.yaml`:
 
 ```yaml
 web-search-zai:
-  billingMode: coding-plan  # change to api to use API balance
+  billingMode: api
+  # Keep your existing apiKeyEnv, baseURL, searchEngine, and searchRecency here.
+```
+
+Merge this field into your existing settings; do not replace the whole file. A previously configured REST `baseURL` or `ZAI_SEARCH_BASE_URL` does not select API mode by itself.
+
+### Choose Coding Plan
+
+Save **Coding Plan** and an endpoint matching the service that issued your key:
+
+| Service | `mcpURL` |
+| --- | --- |
+| Z.ai international (default) | `https://api.z.ai/api/mcp/web_search_prime/mcp` |
+| Zhipu / China | `https://open.bigmodel.cn/api/mcp/web_search_prime/mcp` |
+
+For Zhipu:
+
+```yaml
+web-search-zai:
+  billingMode: coding-plan
+  mcpURL: https://open.bigmodel.cn/api/mcp/web_search_prime/mcp
   apiKeyEnv: ZAI_API_KEY
 ```
 
-Coding Plan uses the [Web Search MCP endpoint](https://docs.z.ai/devpack/mcp/search-mcp-server), not `/api/coding/paas/v4/web_search`. See that page for current quotas and the [Z.ai usage policy](https://docs.z.ai/devpack/usage-policy) for eligibility. This is a community integration; DSH is not advertised as officially endorsed by Z.ai.
+An exhausted or ineligible Coding Plan returns an error. Switching to API billing is always an explicit choice.
 
-## Known limitations
+### Update the installation
 
-- Results without a link or snippet are dropped, so you may get fewer sources than requested.
-- Very short queries can return zero results (e.g. `"SP Tarkov mods installation"` → 0; add the word `"guide"` → 10). That's the upstream backend, not the plugin.
-- Publication dates are not mapped by this plugin.
-- The engine name differs per endpoint (`search-prime` vs `search_pro`); it's a config field, not auto-derived.
-- Caller cancellation maps to `WEB_ABORTED`, including custom cancellation reasons. Coding Plan searches have an overall 60-second deadline and are cancelled on plugin unload.
-- Coding Plan sends `search_query` and a result-count hint only when the server advertises `count`. Engine and recency settings apply only to REST mode. The web service enforces the final result limit.
-- MCP connections are created per search and closed afterward. Search calls are not automatically retried.
-- The chat-side `web_search` tool-injection variant is not implemented.
+Stop DSH, use the command for your installation, then restart DSH and reload its browser page:
 
-## Development
+| Installed from | Update |
+| --- | --- |
+| npm | **After 0.2.0 is published:** `dsh plugin --profile web update dsh-web-search-zai --latest` |
+| GitHub | `dsh plugin --profile web update dsh-web-search-zai --latest` |
+| Local checkout | Run `git pull --ff-only`, then `pnpm install --frozen-lockfile` in the plugin checkout |
 
-```sh
-pnpm install     # all dependencies (including DSH seam packages) come from npm
-pnpm typecheck   # tsc --noEmit
-pnpm build       # emits node code, declarations, and the DSH lib/client.js bundle
-pnpm test        # REST, local MCP server, card, and built-bundle tests
+To try the GitHub build from an npm installation, run the GitHub install command above. To return to the previous release, use `dsh plugin --profile web add dsh-web-search-zai@0.1.0` and restart; that release always uses REST. Your shared credential remains in DSH.
+
+## Settings reference
+
+| Field | Default | Purpose |
+| --- | --- | --- |
+| `billingMode` | `coding-plan` | `coding-plan` or `api` |
+| `mcpURL` | Z.ai international URL above | Full MCP endpoint; Coding Plan only |
+| `apiKeyEnv` | `ZAI_API_KEY` | DSH credential reference, resolved for each search |
+| `apiKey` | Unset | Optional literal key; overrides the managed credential |
+| `baseURL` | `https://api.z.ai/api/paas/v4` | REST only; `/web_search` is appended |
+| `searchEngine` | `search-prime` | REST only; Zhipu uses `search_pro` |
+| `searchRecency` | Unset | REST only; `day`, `week`, `month`, or `year` |
+
+For Zhipu REST, set `baseURL` to `https://open.bigmodel.cn/api/paas/v4` and `searchEngine` to `search_pro`. MCP uses its own full URL, not the chat endpoint or REST base URL.
+
+The card saves non-secret fields through DSH settings and writes keys only through DSH credentials. It never reads a stored key into the browser. A literal `apiKey` overrides the managed key; the card identifies that override and disables key editing until the literal is removed. Without DSH credentials, the provider resolves the configured reference from the launch environment.
+
+**Save** writes edited fields with revision checks. If settings change while you are editing, discard the stale edits and retry. A failed key write after a successful settings save is reported separately; re-enter the key to retry. Save a changed credential reference before entering its key.
+
+**Reset search settings** removes only the card's non-secret user overrides and restores inherited values, including the default Coding Plan mode when no composition override exists. It preserves the shared key. Controls are disabled when the host settings or credential service is unavailable or read-only.
+
+## Troubleshooting
+
+| Symptom | Check |
+| --- | --- |
+| `Cannot find package '@modelcontextprotocol/sdk'` | For a local link, run `pnpm install --frozen-lockfile` **in the plugin checkout**, then restart DSH. `git pull` alone does not install new dependencies. |
+| Search fails after upgrading | Check the **saved billing mode**. Existing REST users must explicitly select `api`. |
+| Authentication or quota error | Match the key to its Z.ai/Zhipu endpoint and check the subscription or API balance for the selected mode. A configured badge reports key presence, not successful authentication. |
+| New card is missing | Confirm the plugin is installed in the `web` profile, restart DSH, and reload the browser. The npm 0.1.0 release has no card. |
+| Settings are read-only | Use a supported DSH host connection with writable settings and credentials; file-based configuration remains available. |
+| Fewer results than requested | The provider drops entries without a URL or nonblank snippet. The DSH web service caps the final result count. |
+
+## How it fits into DSH
+
+```text
+DSH model → web_search tool → ctx.web → zai provider
+                                        ├─ coding-plan → MCP search → plan quota
+                                        └─ api → REST /web_search → API balance
+                                                      ↓
+                                      source URLs, titles, and snippets
 ```
 
-Routine tests never call Z.ai. Local MCP tests need loopback listening permission. Live smoke tests require both a key in the environment and an explicit billing mode:
+The plugin registers into the existing `ctx.web` service. It returns sources; the chat model decides how to use them in its answer. No publication dates or generated answers are invented. It does not enable a model provider's separate chat-side `web_search` option.
+
+MCP connections are created per search and closed afterward. Each Coding Plan operation has a 60-second deadline, supports caller cancellation, and is cancelled on plugin unload. HTTP redirects are rejected; searches are not automatically retried. Errors preserve DSH codes: `WEB_PROVIDER_ERROR`, `WEB_PROVIDER_CREDENTIAL_MISSING`, and `WEB_ABORTED`.
+
+## Verification and development
+
+Automated coverage includes REST regression tests, local MCP JSON/SSE servers, authentication headers, tool discovery, quota errors, malformed/double-encoded responses, cancellation, timeouts, settings conflicts, partial saves, and the browser bundle. CI runs on Windows and Ubuntu with Node 22 and 24.
+
+Live checks are separate: Zhipu Coding Plan returned real results both directly and through DSH's registered `ctx.web` service. The maintainer also verified the plugin in DSH on Windows, and previously tested REST mode. These checks do not promise quota availability for another account or endpoint.
 
 ```sh
-# Export ZAI_API_KEY securely first. Each command performs one live search.
-ZAI_LIVE_BILLING_MODE=coding-plan pnpm test:live
-ZAI_LIVE_BILLING_MODE=api pnpm test:live  # consumes API balance
+pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm build
+pnpm test
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Routine tests use local servers and consume no search quota. Opt-in live tests require `ZAI_API_KEY` and an explicit `ZAI_LIVE_BILLING_MODE` (`coding-plan` or `api`). Set `ZAI_SEARCH_MCP_URL` for Zhipu. Each `pnpm test:live` invocation performs one search. See [CONTRIBUTING.md](CONTRIBUTING.md) for commands and release checks, and [CHANGELOG.md](CHANGELOG.md) for changes.
 
 ## License
 

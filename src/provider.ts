@@ -31,7 +31,7 @@ export const ZAI_DEFAULT_MCP_URL = 'https://api.z.ai/api/mcp/web_search_prime/mc
 export const ZAI_DEFAULT_SEARCH_ENGINE = 'search-prime'
 
 /** Attribution header sent on every request. Bump with the package version. */
-export const USER_AGENT = 'dsh-web-search-zai/0.1.0'
+export const USER_AGENT = 'dsh-web-search-zai/0.2.0'
 
 /** Resolved provider options (the plugin's `apply` supplies credential and constant defaults). */
 export interface ZaiSearchProviderOptions {

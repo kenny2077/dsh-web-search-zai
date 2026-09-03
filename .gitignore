@@ -1,12 +1,13 @@
 # dependencies
 node_modules/
+.pnpm-store/
 
-# build output (lib/*.js at the root IS committed so git installs work
-# without build permissions — see docs in README; lib/types and build
-# metadata are reproducible via `pnpm build`)
-lib/types/
+# Runtime bundles and declarations are committed so Git installs need no build.
+# Only intermediate browser modules and TypeScript build metadata are ignored.
 lib/client/
 *.tsbuildinfo
+*.tgz
+.package-smoke/
 
 # private working documents (not part of the public distribution)
 HANDOFF.md

@@ -1,7 +1,7 @@
 {
   "name": "dsh-web-search-zai",
-  "description": "Single-key web search for the DeepSeek Harness: reuses your existing ZAI_API_KEY for both chat and search, powered by Z.ai (GLM)",
-  "version": "0.1.0",
+  "description": "Z.ai and Zhipu web search for DeepSeek Harness, with Coding Plan MCP quota, REST API billing, and bilingual settings.",
+  "version": "0.2.0",
   "publishConfig": {
     "access": "public"
   },
@@ -25,8 +25,11 @@
     "lib/*.js",
     "lib/*.js.map",
     "lib/types/**/*.d.ts",
+    "lib/types/**/*.d.ts.map",
     "src",
-    "cordis.patch.yml"
+    "cordis.patch.yml",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md"
   ],
   "dsh": {
     "bundle": {
