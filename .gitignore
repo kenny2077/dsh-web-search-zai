@@ -5,6 +5,7 @@ node_modules/
 # without build permissions — see docs in README; lib/types and build
 # metadata are reproducible via `pnpm build`)
 lib/types/
+lib/client/
 *.tsbuildinfo
 
 # private working documents (not part of the public distribution)

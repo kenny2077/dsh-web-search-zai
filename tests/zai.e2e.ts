@@ -1,22 +1,25 @@
 import { describe, expect, it } from 'vitest'
-import { ZaiSearchProvider, ZAI_DEFAULT_BASE_URL, ZAI_DEFAULT_SEARCH_ENGINE } from '../src/index.ts'
+import { ZaiSearchProvider, ZAI_DEFAULT_BASE_URL, ZAI_DEFAULT_SEARCH_ENGINE, ZAI_DEFAULT_MCP_URL } from '../src/index.ts'
 
 /**
- * Real-API smoke for the ZAI search provider. Self-skips without `$ZAI_API_KEY`
- * (CI runs without secrets).
+ * Explicit live smoke: requires both a key and a selected billing mode.
+ * API mode spends API balance; Coding Plan mode consumes MCP quota.
  */
 const apiKey = process.env.ZAI_API_KEY
-const maybe = apiKey !== undefined && apiKey.length > 0 ? describe : describe.skip
+const billingMode = process.env.ZAI_LIVE_BILLING_MODE
+const maybe = apiKey && (billingMode === 'coding-plan' || billingMode === 'api') ? describe : describe.skip
 
-maybe('ZaiSearchProvider real API', () => {
+maybe(`ZaiSearchProvider live ${billingMode ?? '(not selected)'}`, () => {
   it('returns sources for a live query', async () => {
     const provider = new ZaiSearchProvider(() => ({
       apiKey: apiKey!,
-      baseURL: process.env.ZAI_BASE_URL ?? ZAI_DEFAULT_BASE_URL,
+      billingMode: billingMode as 'coding-plan' | 'api',
+      mcpURL: process.env.ZAI_SEARCH_MCP_URL ?? ZAI_DEFAULT_MCP_URL,
+      baseURL: process.env.ZAI_SEARCH_BASE_URL ?? ZAI_DEFAULT_BASE_URL,
       searchEngine: process.env.ZAI_SEARCH_ENGINE ?? ZAI_DEFAULT_SEARCH_ENGINE,
     }))
     const result = await provider.search({ query: 'DeepSeek Harness', maxResults: 5 })
     expect(result.sources.length).toBeGreaterThan(0)
     for (const source of result.sources) expect(source.url).toMatch(/^https?:\/\//)
-  }, 30_000)
+  }, 65_000)
 })

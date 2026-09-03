@@ -8,7 +8,8 @@
 # The provider reads $ZAI_API_KEY from the managed credentials store
 # ($DSH_HOME/.credentials.yaml — the same credential the GLM chat model uses),
 # the inherited environment, or a literal apiKey in the web-search-zai settings
-# section. All fields are runtime-configurable via the Settings GUI.
+# section. Coding Plan MCP quota is the default; set billingMode: api for REST.
+# The settings card stores only the key in credentials; other fields use settings.
 #
 # Patch the web plugin's config to select the ZAI provider.
 - id: web

@@ -1,6 +1,6 @@
 /**
- * A `WebSearchProvider` backed by the ZAI (Zhipu/GLM) standalone Web Search
- * API (`POST /web_search`). Options are read through a thunk so a committed
+ * A `WebSearchProvider` backed by ZAI Coding Plan MCP or the standalone
+ * Web Search API. Options are read through a thunk so a committed
  * settings change takes effect on the next search, without re-registration
  * or a restart (same pattern as `DeepSeekSearchProvider`).
  *
@@ -15,13 +15,17 @@ import type {
   WebSearchSource,
 } from '@deepseek-ai/dsh-web'
 import type { CredentialRef } from '@deepseek-ai/dsh-credentials'
-import type { ZaiError, ZaiRecency, ZaiResult, ZaiSearchResponse } from './types.ts'
+import type { ZaiBillingMode, ZaiError, ZaiRecency, ZaiResult, ZaiSearchResponse } from './types.ts'
+import { searchCodingPlan } from './mcp.ts'
 
 /** Stable id this provider registers under. */
 export const ZAI_PROVIDER_ID = 'zai'
 
 /** Default ZAI endpoint base; `/web_search` is the operation. */
 export const ZAI_DEFAULT_BASE_URL = 'https://api.z.ai/api/paas/v4'
+
+/** Full endpoint; the Coding Plan model base URL is not a search endpoint. */
+export const ZAI_DEFAULT_MCP_URL = 'https://api.z.ai/api/mcp/web_search_prime/mcp'
 
 /** Default engine for `api.z.ai`; `open.bigmodel.cn` uses `search_pro` (underscore). */
 export const ZAI_DEFAULT_SEARCH_ENGINE = 'search-prime'
@@ -31,6 +35,10 @@ export const USER_AGENT = 'dsh-web-search-zai/0.1.0'
 
 /** Resolved provider options (the plugin's `apply` supplies credential and constant defaults). */
 export interface ZaiSearchProviderOptions {
+  /** Omitted means Coding Plan, including when upgrading from REST-only versions. */
+  billingMode?: ZaiBillingMode
+  /** Full Coding Plan MCP endpoint. */
+  mcpURL?: string
   /** Literal ZAI API key; when present it wins over {@link resolveApiKey}. */
   apiKey?: string
   /** Resolve the current ZAI API key for one search operation. */
@@ -83,6 +91,14 @@ export function mapZaiResponse(response: ZaiSearchResponse): WebSearchResult {
 /** The ZAI-backed search provider; HTTP redirects fail as `WEB_PROVIDER_ERROR`. */
 export class ZaiSearchProvider implements WebSearchProvider {
   readonly id = ZAI_PROVIDER_ID
+  private readonly active = new Set<AbortController>()
+  private disposed = false
+
+  /** Cancel active MCP operations when the plugin is unloaded. */
+  dispose(): void {
+    this.disposed = true
+    for (const controller of this.active) controller.abort()
+  }
 
   /**
    * @param resolveOptions - options for the next operation, snapshotted once
@@ -94,14 +110,20 @@ export class ZaiSearchProvider implements WebSearchProvider {
 
   available(): boolean {
     const options = this.resolveOptions()
-    return ((options.apiKey?.length ?? 0) > 0 || options.resolveApiKey !== undefined)
-      && isValidBaseUrl(options.baseURL)
+    return !this.disposed && ((options.apiKey?.length ?? 0) > 0 || options.resolveApiKey !== undefined)
+      && validEndpoint(options)
   }
 
   async search(request: WebSearchRequest, signal?: AbortSignal): Promise<WebSearchResult> {
     // Snapshot once for the whole operation: the key and the endpoint it is
     // sent to must come from the same settings section.
     const options = this.resolveOptions()
+    if (this.disposed) throw searchAborted()
+    throwIfSearchAborted(signal)
+    if (!validEndpoint(options)) throw new WebError('Invalid ZAI search endpoint or billing mode', 'WEB_PROVIDER_ERROR')
+    if ((options.billingMode ?? 'coding-plan') === 'coding-plan') {
+      return this.codingSearch(options, request, signal)
+    }
     const apiKey = await this.apiKey(options, signal)
     throwIfSearchAborted(signal)
     const num = request.maxResults
@@ -128,8 +150,8 @@ export class ZaiSearchProvider implements WebSearchProvider {
         ...signal !== undefined ? { signal } : {},
       })
     } catch (error: unknown) {
-      if (signal?.aborted === true || isAbortError(error)) throw searchAborted(signal, error)
-      throw new WebError(`ZAI search request failed: ${String(error)}`, 'WEB_PROVIDER_ERROR', { cause: error })
+      if (signal?.aborted === true || isAbortError(error)) throw searchAborted()
+      throw new WebError('ZAI search request failed', 'WEB_PROVIDER_ERROR')
     }
 
     if (!response.ok) {
@@ -141,20 +163,44 @@ export class ZaiSearchProvider implements WebSearchProvider {
         if (detail !== undefined && detail.length > 0) message = detail
       } catch (error: unknown) {
         // An abort mid-body must surface as WEB_ABORTED, not a generic error.
-        if (signal?.aborted === true || isAbortError(error)) throw searchAborted(signal, error)
+        if (signal?.aborted === true || isAbortError(error)) throw searchAborted()
         // Otherwise fall back to the HTTP-status message; a non-JSON error
         // body (common for gateway 5xx/429s) costs nothing but detail.
       }
-      throw new WebError(message, 'WEB_PROVIDER_ERROR')
+      throw new WebError(message.split(apiKey).join('[redacted]'), 'WEB_PROVIDER_ERROR')
     }
 
     try {
       const payload = await response.json() as ZaiSearchResponse
       return mapZaiResponse(payload)
     } catch (error: unknown) {
-      if (signal?.aborted === true || isAbortError(error)) throw searchAborted(signal, error)
+      if (signal?.aborted === true || isAbortError(error)) throw searchAborted()
       if (error instanceof WebError) throw error
-      throw new WebError(`ZAI returned an unprocessable response body: ${String(error)}`, 'WEB_PROVIDER_ERROR', { cause: error })
+      throw new WebError('ZAI returned an unprocessable response body', 'WEB_PROVIDER_ERROR')
+    }
+  }
+
+  private async codingSearch(options: ZaiSearchProviderOptions, request: WebSearchRequest, signal?: AbortSignal): Promise<WebSearchResult> {
+    const controller = new AbortController()
+    this.active.add(controller)
+    let timedOut = false
+    const timer = setTimeout(() => { timedOut = true; controller.abort() }, 60_000)
+    timer.unref?.()
+    const combined = signal === undefined ? controller.signal : AbortSignal.any([signal, controller.signal])
+    try {
+      const apiKey = await this.apiKey(options, combined)
+      throwIfSearchAborted(combined)
+      return mapZaiResponse(await searchCodingPlan(
+        options.mcpURL ?? ZAI_DEFAULT_MCP_URL, apiKey, USER_AGENT, request, combined,
+      ))
+    } catch (error) {
+      if (signal?.aborted || this.disposed) throw searchAborted()
+      if (timedOut) throw new WebError('ZAI Coding Plan search timed out after 60 seconds', 'WEB_PROVIDER_ERROR')
+      if (error instanceof WebError) throw error
+      throw new WebError('ZAI Coding Plan search failed; check your key and MCP quota', 'WEB_PROVIDER_ERROR')
+    } finally {
+      clearTimeout(timer)
+      this.active.delete(controller)
     }
   }
 
@@ -171,11 +217,10 @@ export class ZaiSearchProvider implements WebSearchProvider {
     try {
       resolved = await abortable(options.resolveApiKey?.() ?? Promise.resolve(undefined), signal)
     } catch (error: unknown) {
-      if (signal?.aborted === true || isAbortError(error)) throw searchAborted(signal, error)
+      if (signal?.aborted === true || isAbortError(error)) throw searchAborted()
       throw new WebError(
-        `ZAI search credential resolution failed: ${String(error)}`,
+        'ZAI search credential resolution failed',
         'WEB_PROVIDER_ERROR',
-        { cause: error },
       )
     }
     if (resolved !== undefined && resolved.length > 0) return resolved
@@ -192,9 +237,9 @@ export class ZaiSearchProvider implements WebSearchProvider {
 /** Race an async preflight against caller cancellation, without leaving an unhandled rejection behind. */
 function abortable<T>(operation: Promise<T>, signal?: AbortSignal): Promise<T> {
   if (signal === undefined) return operation
-  if (signal.aborted) throw searchAborted(signal)
+  if (signal.aborted) throw searchAborted()
   return new Promise<T>((resolve, reject) => {
-    const onSettle = () => reject(searchAborted(signal))
+    const onSettle = () => reject(searchAborted())
     signal.addEventListener('abort', onSettle, { once: true })
     operation.then(
       (value) => { signal.removeEventListener('abort', onSettle); resolve(value) },
@@ -205,17 +250,22 @@ function abortable<T>(operation: Promise<T>, signal?: AbortSignal): Promise<T> {
 
 /** Throw `WEB_ABORTED` if the signal is already aborted; otherwise return. */
 function throwIfSearchAborted(signal?: AbortSignal): void {
-  if (signal?.aborted === true) throw searchAborted(signal)
+  if (signal?.aborted === true) throw searchAborted()
 }
 
-/** Build the `WEB_ABORTED` error for a signal/cause pair. */
-function searchAborted(signal?: AbortSignal, cause?: unknown): WebError {
-  return new WebError('ZAI search aborted', 'WEB_ABORTED', { cause: cause ?? signal })
+/** Do not retain arbitrary abort reasons, which can contain credentials. */
+function searchAborted(): WebError {
+  return new WebError('ZAI search aborted', 'WEB_ABORTED')
 }
 
-/** True when `baseURL` parses as an absolute URL (a cheap local config check). */
-function isValidBaseUrl(baseURL: string): boolean {
-  return URL.canParse(baseURL)
+/** Only the selected endpoint matters. URLs must be HTTP(S), without embedded credentials. */
+function validEndpoint(options: ZaiSearchProviderOptions): boolean {
+  const mode = options.billingMode ?? 'coding-plan'
+  if (mode !== 'api' && mode !== 'coding-plan') return false
+  try {
+    const url = new URL(mode === 'api' ? options.baseURL : options.mcpURL ?? ZAI_DEFAULT_MCP_URL)
+    return ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password && !url.hash
+  } catch { return false }
 }
 
 /** True for a fetch/`AbortSignal` abort, surfaced as `WEB_ABORTED`. */

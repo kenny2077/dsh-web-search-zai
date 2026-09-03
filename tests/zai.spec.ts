@@ -7,7 +7,7 @@ import * as zaiPlugin from '../src/index.ts'
 import { mapZaiResponse, mapZaiResult, USER_AGENT } from '../src/provider.ts'
 import type { ZaiSearchProviderOptions } from '../src/provider.ts'
 
-const options: ZaiSearchProviderOptions = { apiKey: 'zai-key', baseURL: 'https://api.zai.test/api/paas/v4', searchEngine: 'search-prime' }
+const options: ZaiSearchProviderOptions = { billingMode: 'api', apiKey: 'zai-key', baseURL: 'https://api.zai.test/api/paas/v4', searchEngine: 'search-prime' }
 
 /** Wrap static options in the thunk the provider constructor expects. */
 function thunk(opts: ZaiSearchProviderOptions): () => ZaiSearchProviderOptions {
@@ -245,7 +245,7 @@ describe('web-search-zai plugin registration', () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ search_result: [] })))
     const ctx = new Context()
     await ctx.plugin(WebRuntime, { searchProvider: ZAI_PROVIDER_ID })
-    const fiber = await ctx.plugin(zaiPlugin, { apiKey: 'zai-key' })
+    const fiber = await ctx.plugin(zaiPlugin, { billingMode: 'api', apiKey: 'zai-key' })
     await expect(ctx.web.search({ query: 'q' })).resolves.toMatchObject({ sources: [], truncated: false })
     await fiber.dispose()
     await expect(ctx.web.search({ query: 'q' }))
@@ -261,7 +261,7 @@ describe('web-search-zai plugin registration', () => {
     vi.stubGlobal('fetch', fetchMock)
     const ctx = new Context()
     await ctx.plugin(WebRuntime, { searchProvider: ZAI_PROVIDER_ID })
-    const fiber = await ctx.plugin(zaiPlugin, { apiKey: 'zai-key', searchEngine: 'search_pro', searchRecency: 'month' })
+    const fiber = await ctx.plugin(zaiPlugin, { billingMode: 'api', apiKey: 'zai-key', searchEngine: 'search_pro', searchRecency: 'month' })
     await ctx.web.search({ query: 'q' })
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect(JSON.parse(init.body as string)).toMatchObject({ search_engine: 'search_pro', search_recency_filter: 'month' })
@@ -276,7 +276,7 @@ describe('web-search-zai plugin registration', () => {
       vi.stubGlobal('fetch', fetchMock)
       const ctx = new Context()
       await ctx.plugin(WebRuntime, { searchProvider: ZAI_PROVIDER_ID })
-      const fiber = await ctx.plugin(zaiPlugin, {})
+      const fiber = await ctx.plugin(zaiPlugin, { billingMode: 'api',})
       await ctx.web.search({ query: 'q' })
       const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
       expect(url).toBe('https://api.z.ai/api/paas/v4/web_search')
@@ -295,7 +295,7 @@ describe('web-search-zai plugin registration', () => {
     try {
       const ctx = new Context()
       await ctx.plugin(WebRuntime, { searchProvider: ZAI_PROVIDER_ID })
-      await ctx.plugin(zaiPlugin, {})
+      await ctx.plugin(zaiPlugin, { billingMode: 'api',})
       await expect(ctx.web.search({ query: 'q' }))
         .rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_CREDENTIAL_MISSING' }))
     } finally {

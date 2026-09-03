@@ -17,19 +17,21 @@ import type {} from '@deepseek-ai/dsh-web'
 import {
   ZaiSearchProvider,
   ZAI_DEFAULT_BASE_URL,
+  ZAI_DEFAULT_MCP_URL,
   ZAI_DEFAULT_SEARCH_ENGINE,
 } from './provider.ts'
 import type { ZaiSearchProviderOptions } from './provider.ts'
-import type { ZaiRecency } from './types.ts'
+import type { ZaiBillingMode, ZaiRecency } from './types.ts'
 
 export {
   ZAI_DEFAULT_BASE_URL,
+  ZAI_DEFAULT_MCP_URL,
   ZAI_DEFAULT_SEARCH_ENGINE,
   ZAI_PROVIDER_ID,
   ZaiSearchProvider,
 } from './provider.ts'
 export type { ZaiSearchProviderOptions } from './provider.ts'
-export type { ZaiError, ZaiRecency, ZaiResult, ZaiSearchRequest, ZaiSearchResponse } from './types.ts'
+export type { ZaiBillingMode, ZaiError, ZaiRecency, ZaiResult, ZaiSearchRequest, ZaiSearchResponse } from './types.ts'
 
 /** Cordis plugin name used by loader diagnostics. */
 export const name = 'web-search-zai'
@@ -44,6 +46,10 @@ const SEARCH_BASE_URL_ENV = 'ZAI_SEARCH_BASE_URL'
 
 /** Plugin config (all optional — `apply` fills env-var and constant defaults). */
 export interface Config {
+  /** Coding Plan MCP quota (default), or separately billed REST API search. */
+  billingMode?: ZaiBillingMode
+  /** Full Coding Plan Streamable HTTP MCP endpoint. */
+  mcpURL?: string
   /** Literal ZAI API key; prefer {@link apiKeyEnv} so no secret enters configuration files. */
   apiKey?: string
   /** Credential reference resolved for each search; defaults to `ZAI_API_KEY`. */
@@ -57,6 +63,8 @@ export interface Config {
 }
 
 export const Config: z<Config> = z.object({
+  billingMode: z.union(['coding-plan', 'api'] as const).default('coding-plan'),
+  mcpURL: z.string().default(ZAI_DEFAULT_MCP_URL),
   apiKey: z.string().role('secret'),
   apiKeyEnv: z.string().role('credential-ref').default(DEFAULT_API_KEY_ENV),
   baseURL: z.string(),
@@ -80,6 +88,8 @@ function resolveOptions(ctx: Context, config: Config): ZaiSearchProviderOptions 
     ? config.apiKey
     : undefined
   return {
+    billingMode: config.billingMode ?? 'coding-plan',
+    mcpURL: config.mcpURL ?? ZAI_DEFAULT_MCP_URL,
     ...literalApiKey === undefined ? {} : { apiKey: literalApiKey },
     resolveApiKey: async () => {
       const credentials = ctx.get('credentials')
@@ -107,5 +117,7 @@ export function apply(ctx: Context, config: Config): void {
     // No onChange: the provider re-projects the section per search.
     onChange: () => {},
   })
-  ctx.web.registerSearchProvider(new ZaiSearchProvider(() => resolveOptions(ctx, current())))
+  const provider = new ZaiSearchProvider(() => resolveOptions(ctx, current()))
+  ctx.effect(() => () => provider.dispose(), 'web-search-zai: active MCP searches')
+  ctx.web.registerSearchProvider(provider)
 }

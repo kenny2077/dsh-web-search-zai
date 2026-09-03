@@ -12,6 +12,9 @@
 /** Recency window values the ZAI API accepts for `search_recency_filter`. */
 export type ZaiRecency = 'day' | 'week' | 'month' | 'year'
 
+/** The account allowance charged for a search. No automatic paid fallback. */
+export type ZaiBillingMode = 'coding-plan' | 'api'
+
 /** Request body sent to the ZAI Web Search endpoint. */
 export interface ZaiSearchRequest {
   /** The search query. */

@@ -18,7 +18,8 @@
       "default": "./lib/invariant.js"
     },
     "./src/*": "./src/*",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./client": "./lib/client.js"
   },
   "files": [
     "lib/*.js",
@@ -30,6 +31,12 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings"
+      ],
+      "platform": "web"
     }
   },
   "license": "MIT",
@@ -59,10 +66,11 @@
     "node": "^22.19.0 || >=24.0.0"
   },
   "scripts": {
-    "build": "tsc --build",
+    "build": "tsc --build && tsdown",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run tests/zai.spec.ts",
-    "prepublishOnly": "pnpm build"
+    "test": "vitest run tests/zai.spec.ts tests/mcp.spec.ts tests/client-card.spec.tsx",
+    "prepublishOnly": "pnpm build",
+    "test:live": "vitest run tests/zai.e2e.ts"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "*",
@@ -83,7 +91,15 @@
     "@deepseek-ai/dsh-web": "0.1.1-rc.2",
     "@deepseek-ai/schemastery": "^3.18.1",
     "@types/node": "^22.19.0",
+    "@types/react": "^19.2.18",
+    "@types/react-test-renderer": "^19.1.0",
+    "react": "^19.2.8",
+    "react-test-renderer": "^19.2.8",
+    "tsdown": "^0.22.14",
     "typescript": "^6.0.3",
     "vitest": "^4.1.8"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0"
   }
 }
