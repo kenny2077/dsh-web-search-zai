@@ -157,12 +157,21 @@ describe('Coding Plan MCP transport', () => {
   })
   it('times out and cleans up a hung MCP call', async () => {
     const local = await server({ hang: 'tools/call' })
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    // Keep real HTTP timers running. Capture only the provider's synchronous deadline.
+    const schedule = vi.spyOn(globalThis, 'setTimeout')
     const result = provider(local.url).search({ query: 'q' }).catch(error => error)
-    await local.hung
-    await vi.advanceTimersByTimeAsync(60_000)
-    expect(await result).toMatchObject({ code: 'WEB_PROVIDER_ERROR', message: expect.stringContaining('timed out') })
-    expect(vi.getTimerCount()).toBe(0)
+    const [expire, delay] = schedule.mock.calls[0]!
+    const deadline = schedule.mock.results[0]!.value
+    schedule.mockRestore()
+    const clear = vi.spyOn(globalThis, 'clearTimeout')
+    try {
+      expect(delay).toBe(60_000)
+      await local.hung
+      expire()
+      expect(await result).toMatchObject({ code: 'WEB_PROVIDER_ERROR', message: expect.stringContaining('timed out') })
+      expect(clear).toHaveBeenCalledWith(deadline)
+      expect(local.requests.filter(req => req.rpc?.method === 'tools/call')).toHaveLength(1)
+    } finally { clearTimeout(deadline); clear.mockRestore() }
   })
   it('snapshots once and reads new endpoint and credentials on the next search', async () => {
     const first = await server()
