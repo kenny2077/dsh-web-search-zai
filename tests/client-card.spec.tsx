@@ -162,6 +162,41 @@ describe('settings card persistence', () => {
 })
 
 describe('settings card rendering and browser package', () => {
+  it.each([en, zh])('stages the selected regional endpoint without changing credentials or billing', async dictionary => {
+    const f = fixture()
+    let renderer!: ReactTestRenderer
+    await act(async () => { renderer = create(<Card store={f.store} t={key => dictionary[key]} />) })
+    cleanup.push(() => renderer.unmount())
+    const preset = renderer.root.findAllByType('button').find(node => node.props.children === dictionary.useZhipu)!
+    await act(async () => { preset.props.onClick() })
+    expect(f.store.getSnapshot().draft).toEqual({ mcpURL: 'https://open.bigmodel.cn/api/mcp/web_search_prime/mcp' })
+    expect(f.scope.mutate).not.toHaveBeenCalled()
+    await act(async () => { renderer.root.findByType('form').props.onSubmit({ preventDefault() {} }) })
+    expect(f.scope.mutate).toHaveBeenCalledWith([{ op: 'set', path: ['mcpURL'], value: 'https://open.bigmodel.cn/api/mcp/web_search_prime/mcp' }], 1)
+    expect(f.credentials.set).not.toHaveBeenCalled()
+  })
+  it('allows key re-entry after a partial save without discarding committed settings', async () => {
+    const f = fixture()
+    vi.mocked(f.credentials.set).mockResolvedValueOnce({ result: { ok: false } })
+    let renderer!: ReactTestRenderer
+    await act(async () => { renderer = create(<Card store={f.store} t={key => en[key]} />) })
+    cleanup.push(() => renderer.unmount())
+    const password = () => renderer.root.findAllByType('input').find(node => node.props.type === 'password')!
+    await act(async () => {
+      f.store.edit('billingMode', 'api')
+      password().props.onChange({ target: { value: 'temporary-key' } })
+    })
+    await act(async () => { renderer.root.findByType('form').props.onSubmit({ preventDefault() {} }) })
+    expect(f.store.getSnapshot().message).toBe('partialSave')
+    expect(password().props.value).toBe('')
+    expect(f.scope.getSnapshot().value?.billingMode).toBe('api')
+    await act(async () => { password().props.onChange({ target: { value: 'temporary-key' } }) })
+    await act(async () => { renderer.root.findByType('form').props.onSubmit({ preventDefault() {} }) })
+    expect(f.store.getSnapshot().message).toBe('saved')
+    expect(f.scope.mutate).toHaveBeenCalledTimes(1)
+    expect(f.credentials.set).toHaveBeenCalledTimes(2)
+    expect(password().props.value).toBe('')
+  })
   it.each([en, zh])('renders saved selections, switches advanced controls, and masks keys', async dictionary => {
     const f = fixture()
     let renderer!: ReactTestRenderer
