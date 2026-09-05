@@ -1,3 +1,16 @@
+/**
+ * Settings card state store and host contract types.
+ *
+ * {@link CardStore} owns the draft ↔ scope ↔ credential lifecycle for the
+ * settings card. It stages non-secret field edits locally, commits them
+ * through the DSH settings scope, and writes keys only through the DSH
+ * credentials API. Structural host contracts (`SettingsScope`, `Mirror`,
+ * `CredentialsApi`) are declared as interfaces so the browser bundle stays
+ * free of host runtime imports.
+ *
+ * @module dsh-web-search-zai/client/store
+ */
+
 /** Structural host contracts keep the browser bundle free of host runtime imports. */
 export const NAMESPACE = 'web-search-zai'
 export const FIELDS = ['billingMode', 'apiKeyEnv', 'mcpURL', 'baseURL', 'searchEngine', 'searchRecency'] as const
@@ -38,7 +51,14 @@ export interface CardState {
   message: Message | undefined
 }
 
-/** The card stages only non-secret fields. A typed key lives in the form until Save. */
+/**
+ * Reactive state store for the settings card.
+ *
+ * Bridges the DSH settings scope and credentials API into a single
+ * subscribe/getSnapshot contract that React can consume via
+ * `useSyncExternalStore`. Edits are staged locally until {@link save}
+ * commits them atomically with revision checks.
+ */
 export class CardStore {
   private state: CardState
   private readonly listeners = new Set<() => void>()
@@ -73,6 +93,7 @@ export class CardStore {
     if (previousRef !== this.keyRef() || this.credentialGeneration === 0) void this.refreshCredential()
   }
   keyRef(): string { return this.state.scope.value?.apiKeyEnv || 'ZAI_API_KEY' }
+  /** Re-query the credentials API for the current key reference's status. */
   async refreshCredential(): Promise<void> {
     const generation = ++this.credentialGeneration
     const ref = this.keyRef()
@@ -86,6 +107,7 @@ export class CardStore {
       if (generation === this.credentialGeneration) this.update({ keyWritable: false })
     }
   }
+  /** Stage a field edit locally. Has no effect while a save is in progress. */
   edit(field: Field, value: string): void {
     if (this.state.saving) return
     this.update({
@@ -113,6 +135,15 @@ export class CardStore {
         : Object.hasOwn(user ?? {}, op.path[0]!) && user?.[op.path[0]!] === op.value)
     } catch { return false }
   }
+  /**
+   * Commit staged edits and an optional key to the host.
+   *
+   * Settings fields are written first; if that succeeds and a non-empty key
+   * was provided, the key is written through the credentials API. A failed
+   * key write after a successful settings save is reported as `partialSave`.
+   *
+   * @returns `true` when all writes succeeded.
+   */
   async save(key: string, keyRevision?: number): Promise<boolean> {
     const revision = this.state.draftRevision ?? keyRevision ?? this.state.scope.revision
     if (key.trim() && keyRevision !== undefined && keyRevision !== this.scope.getSnapshot().revision) {
@@ -153,6 +184,7 @@ export class CardStore {
       return true
     } finally { this.update({ saving: false }) }
   }
+  /** Clear all non-secret user overrides, restoring inherited values. Keeps the shared key. */
   async reset(): Promise<boolean> {
     const revision = this.state.draftRevision ?? this.state.scope.revision
     if (!this.ready(revision)) return false

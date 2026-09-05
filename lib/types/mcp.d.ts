@@ -1,3 +1,14 @@
+/**
+ * Coding Plan MCP search transport.
+ *
+ * Each search opens a Streamable HTTP connection to the Z.ai / Zhipu MCP
+ * endpoint, discovers the `webSearchPrime` tool, calls it, and normalises the
+ * result into the provider's `ZaiSearchResponse` envelope. The connection is
+ * closed after every call so rotation and cancellation cannot affect another
+ * in-flight search.
+ *
+ * @module dsh-web-search-zai/mcp
+ */
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { WebSearchRequest } from '@deepseek-ai/dsh-web';
 import type { ZaiSearchResponse } from './types.ts';

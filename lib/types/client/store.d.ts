@@ -1,3 +1,15 @@
+/**
+ * Settings card state store and host contract types.
+ *
+ * {@link CardStore} owns the draft ↔ scope ↔ credential lifecycle for the
+ * settings card. It stages non-secret field edits locally, commits them
+ * through the DSH settings scope, and writes keys only through the DSH
+ * credentials API. Structural host contracts (`SettingsScope`, `Mirror`,
+ * `CredentialsApi`) are declared as interfaces so the browser bundle stays
+ * free of host runtime imports.
+ *
+ * @module dsh-web-search-zai/client/store
+ */
 /** Structural host contracts keep the browser bundle free of host runtime imports. */
 export declare const NAMESPACE = "web-search-zai";
 export declare const FIELDS: readonly ["billingMode", "apiKeyEnv", "mcpURL", "baseURL", "searchEngine", "searchRecency"];
@@ -72,7 +84,14 @@ export interface CardState {
     literalKey: boolean;
     message: Message | undefined;
 }
-/** The card stages only non-secret fields. A typed key lives in the form until Save. */
+/**
+ * Reactive state store for the settings card.
+ *
+ * Bridges the DSH settings scope and credentials API into a single
+ * subscribe/getSnapshot contract that React can consume via
+ * `useSyncExternalStore`. Edits are staged locally until {@link save}
+ * commits them atomically with revision checks.
+ */
 export declare class CardStore {
     private readonly scope;
     private readonly mirror;
@@ -88,12 +107,24 @@ export declare class CardStore {
     private update;
     private refresh;
     keyRef(): string;
+    /** Re-query the credentials API for the current key reference's status. */
     refreshCredential(): Promise<void>;
+    /** Stage a field edit locally. Has no effect while a save is in progress. */
     edit(field: Field, value: string): void;
     discard(): void;
     private ready;
     private commit;
+    /**
+     * Commit staged edits and an optional key to the host.
+     *
+     * Settings fields are written first; if that succeeds and a non-empty key
+     * was provided, the key is written through the credentials API. A failed
+     * key write after a successful settings save is reported as `partialSave`.
+     *
+     * @returns `true` when all writes succeeded.
+     */
     save(key: string, keyRevision?: number): Promise<boolean>;
+    /** Clear all non-secret user overrides, restoring inherited values. Keeps the shared key. */
     reset(): Promise<boolean>;
     dispose(): void;
 }

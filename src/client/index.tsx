@@ -1,3 +1,13 @@
+/**
+ * Browser-side DSH plugin entry point.
+ *
+ * Loaded by the DSH shell's `__ModuleLoader__` factory. Binds the settings
+ * scope, registers locale dictionaries, injects the settings card into the
+ * `settings.section` slot, and relays credential-update events to the store.
+ *
+ * @module dsh-web-search-zai/client
+ */
+
 import type { ReactNode } from 'react'
 import { Card } from './card.tsx'
 import { CardStore, NAMESPACE } from './store.ts'

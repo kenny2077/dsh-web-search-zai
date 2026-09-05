@@ -1,3 +1,12 @@
+/**
+ * Browser-side DSH plugin entry point.
+ *
+ * Loaded by the DSH shell's `__ModuleLoader__` factory. Binds the settings
+ * scope, registers locale dictionaries, injects the settings card into the
+ * `settings.section` slot, and relays credential-update events to the store.
+ *
+ * @module dsh-web-search-zai/client
+ */
 import type { CredentialsApi, Mirror, Op, SettingsScope } from './store.ts';
 export interface ClientContext {
     get(service: 'connection'): {

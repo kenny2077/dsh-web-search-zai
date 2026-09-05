@@ -1,3 +1,12 @@
+/**
+ * Bilingual (EN / ZH) locale dictionaries for the settings card.
+ *
+ * Keys are shared between both languages and typed as {@link MessageKey}.
+ * The dictionaries are registered under the `settings.plugins.zai` namespace
+ * so the DSH locale service selects the active language at runtime.
+ *
+ * @module dsh-web-search-zai/client/locales
+ */
 export declare const en: {
     title: string;
     description: string;
