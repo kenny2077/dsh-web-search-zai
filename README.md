@@ -24,7 +24,7 @@ English | [中文](README.zh.md) · Listed in [Awesome DSH Plugins](https://gith
 | **Coding Plan** (`coding-plan`, default) | Subscription MCP quota | Your key has an eligible Coding Plan subscription |
 | **API** (`api`) | Separately billed API balance | You want REST search or are keeping your 0.1.0 setup |
 
-A search can consume quota even without a chat inference request. In our Zhipu test, a search was observed to consume **one point**. A point is not a model token, and this observation is not a guaranteed rate or allowance. Check the current [Z.ai search documentation](https://docs.z.ai/devpack/mcp/search-mcp-server), [Z.ai usage policy](https://docs.z.ai/devpack/usage-policy), and [Zhipu search documentation](https://docs.bigmodel.cn/cn/coding-plan/mcp/search-mcp-server) for your account. This is a community plugin; listing in a community catalog does not imply official DSH or Z.ai endorsement.
+A search can consume quota even without a chat inference request. In our Zhipu test (September 2026), each search consumed **one point** from the Coding Plan's rolling 5-hour pool (2,000 points per window). In REST API mode, a single search was billed at **¥0.05 RMB**. A point is not a model token, and these observations are not guaranteed rates or allowances — check the current [Z.ai search documentation](https://docs.z.ai/devpack/mcp/search-mcp-server), [Z.ai usage policy](https://docs.z.ai/devpack/usage-policy), and [Zhipu search documentation](https://docs.bigmodel.cn/cn/coding-plan/mcp/search-mcp-server) for your account. This is a community plugin; listing in a community catalog does not imply official DSH or Z.ai endorsement.
 
 ## Install and configure
 

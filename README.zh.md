@@ -24,7 +24,7 @@
 | **Coding Plan**（`coding-plan`，默认） | 套餐 MCP 额度 | 密钥具有符合条件的 Coding Plan 订阅 |
 | **API**（`api`） | 单独计费的 API 余额 | 使用 REST 搜索，或保留 0.1.0 的配置 |
 
-即使没有聊天推理请求，搜索仍可能消耗额度。我们的智谱测试观察到一次搜索消耗 **1 积分**。积分不是模型 token；这个观察结果不代表固定费率或额度承诺。请以当前 [Z.ai 搜索文档](https://docs.z.ai/devpack/mcp/search-mcp-server)、[Z.ai 使用政策](https://docs.z.ai/devpack/usage-policy)及[智谱搜索文档](https://docs.bigmodel.cn/cn/coding-plan/mcp/search-mcp-server)为准。这是社区插件，社区目录收录不代表 DSH 或 Z.ai 官方背书。
+即使没有聊天推理请求，搜索仍可能消耗额度。我们的智谱测试（2026 年 9 月）显示，每次搜索消耗 Coding Plan 滚动 5 小时额度池（每窗口 2,000 积分）中的 **1 积分**；REST API 模式下，每次搜索计费 **¥0.05 元**。积分不是模型 token；以上为观测数据，不代表固定费率或额度承诺——请以当前 [Z.ai 搜索文档](https://docs.z.ai/devpack/mcp/search-mcp-server)、[Z.ai 使用政策](https://docs.z.ai/devpack/usage-policy)及[智谱搜索文档](https://docs.bigmodel.cn/cn/coding-plan/mcp/search-mcp-server)为准。这是社区插件，社区目录收录不代表 DSH 或 Z.ai 官方背书。
 
 ## 安装与配置
 
